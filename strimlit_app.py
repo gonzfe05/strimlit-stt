@@ -44,7 +44,7 @@ This demo app is using conformerctc
 """
     )
 
-    app_sst(endpoint='104.197.76.238', ORIGINAL_SR='48000', VAD_SR='8000')
+    app_sst(endpoint='ws://104.197.76.238:23000/ws', ORIGINAL_SR='48_000', VAD_SR='8_000')
 
 def get_webrtc_context(key: str = "speech-to-text") -> WebRtcStreamerContext:
     """Build a context to manage connection by webrtc to the mic"""
@@ -90,7 +90,9 @@ def start_read_thread(client: WebSocket, responses: List) -> None:
 
 def init_client(endpoint: str, ORIGINAL_SR: int, VAD_SR: int, responses: List, status_indicator: Any) -> None:
     """Init websocket and read thread"""
-    client = create_connection(f'{endpoint}?&source_sr={ORIGINAL_SR}&vad_sr={VAD_SR}')
+    conn = f'{endpoint}?&source_sr={ORIGINAL_SR}&vad_sr={VAD_SR}'
+    logger.info(f"Connecting to: {conn}")
+    client = create_connection(conn)
     start_read_thread(client, responses)
     status_indicator.write("Model loaded.")
 
