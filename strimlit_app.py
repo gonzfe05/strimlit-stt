@@ -44,7 +44,7 @@ This demo app is using conformerctc
 """
     )
 
-    app_sst(endpoint='ws://104.197.76.238:23000/ws', ORIGINAL_SR='48_000', VAD_SR='8_000')
+    app_sst(endpoint='ws://104.197.76.238:23000/ws', ORIGINAL_SR=48000, VAD_SR=8000)
 
 def get_webrtc_context(key: str = "speech-to-text") -> WebRtcStreamerContext:
     """Build a context to manage connection by webrtc to the mic"""
