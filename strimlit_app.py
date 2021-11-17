@@ -75,6 +75,7 @@ def read_transcript(client: WebSocket, responses: List) ->List[str]:
         response = client.recv()
         # print(f"reciving response:\n\t{response}\n")
         text_output = st.empty()
+        logging.info(f"response: {response}")
         text_output.markdown(f"**Text:** {response}")
         responses.append(json.loads(response))
     except WebSocketDisconnect:
@@ -102,11 +103,9 @@ def send_audio_frames(audio_frames: List, client: WebSocket, ORIGINAL_SR: int) -
     # Cumulate sound chunks
     sound_chunk = cum_sound_chunks(audio_frames)
     # Feed stream of audio to stt server
-    logging.info(f"sound_chunk length: {len(sound_chunk)}")
     if len(sound_chunk) > 0:
         sound_chunk = sound_chunk.set_channels(1).set_frame_rate(ORIGINAL_SR)
         buffer = np.array(sound_chunk.get_array_of_samples())
-        logging.info(f"Buffer shape: {buffer.shape}")
         client.send_binary(buffer.tobytes())
 
 def app_sst(endpoint: str, ORIGINAL_SR:int, VAD_SR: int):
