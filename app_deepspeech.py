@@ -7,7 +7,8 @@ import time
 import urllib.request
 from collections import deque
 from pathlib import Path
-from typing import List
+from typing import Any, List
+from starlette.websockets import WebSocket
 from websocket import create_connection
 from fastapi import WebSocketDisconnect
 import json
@@ -26,57 +27,12 @@ from streamlit_webrtc import (
     webrtc_streamer,
 )
 from streamlit_webrtc.component import WebRtcStreamerContext
+from streamlit.report_thread import add_report_ctx
+
 
 HERE = Path(__file__).parent
 
 logger = logging.getLogger(__name__)
-
-
-# This code is based on https://github.com/streamlit/demo-self-driving/blob/230245391f2dda0cb464008195a470751c01770b/streamlit_app.py#L48  # noqa: E501
-def download_file(url, download_to: Path, expected_size=None):
-    """Downloads file from url"""
-    # Don't download the file twice.
-    # (If possible, verify the download using the file length.)
-    if download_to.exists():
-        if expected_size:
-            if download_to.stat().st_size == expected_size:
-                return
-        else:
-            st.info(f"{url} is already downloaded.")
-            if not st.button("Download again?"):
-                return
-
-    download_to.parent.mkdir(parents=True, exist_ok=True)
-
-    # These are handles to two visual elements to animate.
-    weights_warning, progress_bar = None, None
-    try:
-        weights_warning = st.warning("Downloading %s..." % url)
-        progress_bar = st.progress(0)
-        with open(download_to, "wb") as output_file:
-            with urllib.request.urlopen(url) as response:
-                length = int(response.info()["Content-Length"])
-                counter = 0.0
-                MEGABYTES = 2.0 ** 20.0
-                while True:
-                    data = response.read(8192)
-                    if not data:
-                        break
-                    counter += len(data)
-                    output_file.write(data)
-
-                    # We perform animation by overwriting the elements.
-                    weights_warning.warning(
-                        "Downloading %s... (%6.2f/%6.2f MB)"
-                        % (url, counter / MEGABYTES, length / MEGABYTES)
-                    )
-                    progress_bar.progress(min(counter / length, 1.0))
-    # Finally, we remove these visual elements by calling .empty().
-    finally:
-        if weights_warning is not None:
-            weights_warning.empty()
-        if progress_bar is not None:
-            progress_bar.empty()
 
 
 def main():
@@ -84,31 +40,11 @@ def main():
     st.header("Real Time Speech-to-Text")
     st.markdown(
         """
-This demo app is using [DeepSpeech](https://github.com/mozilla/DeepSpeech),
-an open speech-to-text engine.
-
-A pre-trained model released with
-[v0.9.3](https://github.com/mozilla/DeepSpeech/releases/tag/v0.9.3),
-trained on American English is being served.
+This demo app is using conformerctc
 """
     )
 
-    # https://github.com/mozilla/DeepSpeech/releases/tag/v0.9.3
-    MODEL_URL = "https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/deepspeech-0.9.3-models.pbmm"  # noqa
-    LANG_MODEL_URL = "https://github.com/mozilla/DeepSpeech/releases/download/v0.9.3/deepspeech-0.9.3-models.scorer"  # noqa
-    MODEL_LOCAL_PATH = HERE / "models/deepspeech-0.9.3-models.pbmm"
-    LANG_MODEL_LOCAL_PATH = HERE / "models/deepspeech-0.9.3-models.scorer"
-
-    download_file(MODEL_URL, MODEL_LOCAL_PATH, expected_size=188915987)
-    download_file(LANG_MODEL_URL, LANG_MODEL_LOCAL_PATH, expected_size=953363776)
-
-    lm_alpha = 0.931289039105002
-    lm_beta = 1.1834137581510284
-    beam = 100
-
-    app_sst(
-        str(MODEL_LOCAL_PATH), str(LANG_MODEL_LOCAL_PATH), lm_alpha, lm_beta, beam
-    )
+    app_sst(endpoint='104.197.76.238', ORIGINAL_SR='48000', VAD_SR='8000')
 
 def get_webrtc_context(key: str = "speech-to-text") -> WebRtcStreamerContext:
     """Build a context to manage connection by webrtc to the mic"""
@@ -133,44 +69,56 @@ def cum_sound_chunks(audio_frames: List) -> AudioSegment:
         sound_chunk += sound
     return sound_chunk
 
-def read_transcript(client, responses) ->List[str]:
+def read_transcript(client: WebSocket, responses: List) ->List[str]:
+    """Read from websocket"""
     try:
         response = client.recv()
-        print(f"reciving response:\n\t{response}\n")
+        # print(f"reciving response:\n\t{response}\n")
+        text_output = st.empty()
+        text_output.markdown(f"**Text:** {response}")
         responses.append(json.loads(response))
     except WebSocketDisconnect:
         pass
     except Exception:
         pass
 
-def app_sst(model_path: str, endpoint: str, ORIGINAL_SR:int, VAD_SR: int):
+def start_read_thread(client: WebSocket, responses: List) -> None:
+    """Init read thread"""
+    thread = threading.Thread(target=read_transcript, args=(client,responses))
+    add_report_ctx(thread)
+    thread.start()
+
+def init_client(endpoint: str, ORIGINAL_SR: int, VAD_SR: int, responses: List, status_indicator: Any) -> None:
+    """Init websocket and read thread"""
+    client = create_connection(f'{endpoint}?&source_sr={ORIGINAL_SR}&vad_sr={VAD_SR}')
+    start_read_thread(client, responses)
+    status_indicator.write("Model loaded.")
+
+def send_audio_frames(audio_frames: List, client: WebSocket, ORIGINAL_SR: int) -> None:
+    """Send audio frames to the websocket"""
+    # Cumulate sound chunks
+    sound_chunk = cum_sound_chunks(audio_frames)
+    # Feed stream of audio to stt server
+    if len(sound_chunk) > 0:
+        sound_chunk = sound_chunk.set_channels(1).set_frame_rate(ORIGINAL_SR)
+        buffer = np.array(sound_chunk.get_array_of_samples())
+        client.send_binary(buffer)
+
+def app_sst(endpoint: str, ORIGINAL_SR:int, VAD_SR: int):
     """Speech-to-text"""
 
     webrtc_ctx = get_webrtc_context()
-    
     status_indicator = st.empty()
-
     if not webrtc_ctx.state.playing:
         return
-
     status_indicator.write("Loading...")
-    text_output = st.empty()
-    stream = None
+    client = None
     responses = []
 
     while True:
         if webrtc_ctx.audio_receiver:
             if client is None:
-                # from deepspeech import Model
-                # model = Model(model_path)
-                # model.enableExternalScorer(lm_path)
-                # model.setScorerAlphaBeta(lm_alpha, lm_beta)
-                # model.setBeamWidth(beam)
-                # stream = model.createStream()
-                client = create_connection(f'{endpoint}?&source_sr={ORIGINAL_SR}&vad_sr={VAD_SR}')
-                start_new_thread(read_transcript, (client,responses))
-                status_indicator.write("Model loaded.")
-
+                init_client(endpoint, ORIGINAL_SR, VAD_SR, responses, status_indicator)
             try:
                 audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
             except queue.Empty:
@@ -179,17 +127,7 @@ def app_sst(model_path: str, endpoint: str, ORIGINAL_SR:int, VAD_SR: int):
                 continue
 
             status_indicator.write("Running. Say something!")
-            # Cumulate sound chunks
-            sound_chunk = cum_sound_chunks(audio_frames)
-            # Feed stream of audio to stt server
-            if len(sound_chunk) > 0:
-                # sound_chunk = sound_chunk.set_channels(1).set_frame_rate(model.sampleRate())
-                buffer = np.array(sound_chunk.get_array_of_samples())
-                # stream.feedAudioContent(buffer)
-                # text = stream.intermediateDecode()
-                # text_output.markdown(f"**Text:** {text}")
-                # text_output.markdown(f"**Text:** {text}")
-                client.send_binary(buffer)
+            send_audio_frames(audio_frames, client, ORIGINAL_SR)
         else:
             status_indicator.write("AudioReciver is not set. Abort.")
             break
