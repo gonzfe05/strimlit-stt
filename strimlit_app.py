@@ -104,7 +104,7 @@ def send_audio_frames(audio_frames: List, client: WebSocket, ORIGINAL_SR: int) -
     # Feed stream of audio to stt server
     logging.info(f"sound_chunk length: {len(sound_chunk)}")
     if len(sound_chunk) > 0:
-        # sound_chunk = sound_chunk.set_channels(1).set_frame_rate(ORIGINAL_SR)
+        sound_chunk = sound_chunk.set_channels(1).set_frame_rate(ORIGINAL_SR)
         buffer = np.array(sound_chunk.get_array_of_samples())
         logging.info(f"Buffer shape: {buffer.shape}")
         client.send_binary(buffer)
