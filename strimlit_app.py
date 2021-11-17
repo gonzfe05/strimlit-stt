@@ -95,6 +95,7 @@ def init_client(endpoint: str, ORIGINAL_SR: int, VAD_SR: int, responses: List, s
     client = create_connection(conn)
     start_read_thread(client, responses)
     status_indicator.write("Model loaded.")
+    return client
 
 def send_audio_frames(audio_frames: List, client: WebSocket, ORIGINAL_SR: int) -> None:
     """Send audio frames to the websocket"""
@@ -120,7 +121,7 @@ def app_sst(endpoint: str, ORIGINAL_SR:int, VAD_SR: int):
     while True:
         if webrtc_ctx.audio_receiver:
             if client is None:
-                init_client(endpoint, ORIGINAL_SR, VAD_SR, responses, status_indicator)
+                client = init_client(endpoint, ORIGINAL_SR, VAD_SR, responses, status_indicator)
             try:
                 audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
             except queue.Empty:
