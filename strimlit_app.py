@@ -56,19 +56,6 @@ def get_webrtc_context(key: str = "speech-to-text") -> WebRtcStreamerContext:
     # Set an arbitrary string to it.
     return webrtc_streamer(key=key,mode=WebRtcMode.SENDONLY,audio_receiver_size=1024,client_settings=client)
 
-def cum_sound_chunks(audio_frames: List) -> AudioSegment:
-    """cummulate sound frames"""
-    sound_chunk = pydub.AudioSegment.empty()
-    for audio_frame in audio_frames:
-        sound = pydub.AudioSegment(
-            data=audio_frame.to_ndarray().tobytes(),
-            sample_width=audio_frame.format.bytes,
-            frame_rate=audio_frame.sample_rate,
-            channels=len(audio_frame.layout.channels),
-        )
-        sound_chunk += sound
-    return sound_chunk
-
 def read_transcript(client: WebSocket, responses: List) ->List[str]:
     """Read from websocket"""
     try:
@@ -98,6 +85,19 @@ def init_client(endpoint: str, ORIGINAL_SR: int, VAD_SR: int, responses: List, s
     status_indicator.write("Model loaded.")
     return client
 
+def cum_sound_chunks(audio_frames: List) -> AudioSegment:
+    """cummulate sound frames"""
+    sound_chunk = pydub.AudioSegment.empty()
+    for audio_frame in audio_frames:
+        sound = pydub.AudioSegment(
+            data=audio_frame.to_ndarray().tobytes(),
+            sample_width=audio_frame.format.bytes,
+            frame_rate=audio_frame.sample_rate,
+            channels=len(audio_frame.layout.channels),
+        )
+        sound_chunk += sound
+    return sound_chunk
+
 def send_audio_frames(audio_frames: List, client: WebSocket, ORIGINAL_SR: int) -> None:
     """Send audio frames to the websocket"""
     # Cumulate sound chunks
@@ -105,8 +105,9 @@ def send_audio_frames(audio_frames: List, client: WebSocket, ORIGINAL_SR: int) -
     # Feed stream of audio to stt server
     if len(sound_chunk) > 0:
         sound_chunk = sound_chunk.set_channels(1).set_frame_rate(ORIGINAL_SR)
-        buffer = np.array(sound_chunk.get_array_of_samples())
-        client.send_binary(buffer.tobytes())
+        # buffer = np.array(sound_chunk.get_array_of_samples())
+        buffer = sound_chunk.raw_data()
+        client.send_binary(buffer)
 
 def app_sst(endpoint: str, ORIGINAL_SR:int, VAD_SR: int):
     """Speech-to-text"""
@@ -129,7 +130,6 @@ def app_sst(endpoint: str, ORIGINAL_SR:int, VAD_SR: int):
                 time.sleep(0.1)
                 status_indicator.write("No frame arrived.")
                 continue
-
             status_indicator.write("Running. Say something!")
             send_audio_frames(audio_frames, client, ORIGINAL_SR)
         else:
