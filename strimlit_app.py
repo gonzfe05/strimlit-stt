@@ -43,10 +43,7 @@ def main():
     option = st.selectbox('Select the ASR model', ('conformerctc','wav2vec'))
     while not option:
         pass
-    if option=='conformerctc':
-        app_sst(endpoint=f'ws://{ips[option]}:23000/ws', ORIGINAL_SR=48000, VAD_SR=48000)
-    else:
-        st.write(option)
+    app_sst(endpoint=f'ws://{ips[option]}:23000/ws', ORIGINAL_SR=48000, VAD_SR=48000)
 
 def get_webrtc_context(key: str = "speech-to-text") -> WebRtcStreamerContext:
     """Build a context to manage connection by webrtc to the mic"""
