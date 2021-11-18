@@ -44,7 +44,7 @@ This demo app is using conformerctc
 """
     )
     ips = {'conformerctc': '104.197.76.238', 'wav2vec': '35.188.220.104'}
-    option = st.selectbox('Select the ASR model', ('conformerctc', 'wav2vec'))
+    option = st.selectbox('Select the ASR model', ('conformerctc'))
     while not option:
         pass
     app_sst(endpoint=f'ws://{ips[option]}:23000/ws', ORIGINAL_SR=48000, VAD_SR=48000)
