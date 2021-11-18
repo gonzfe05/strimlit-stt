@@ -58,13 +58,13 @@ def get_webrtc_context(key: str = "speech-to-text") -> WebRtcStreamerContext:
 
 def read_transcript(client: WebSocket, responses: List) ->List[str]:
     """Read from websocket"""
+    text_output = st.empty()
     try:
         response = client.recv()
-        # print(f"reciving response:\n\t{response}\n")
-        text_output = st.empty()
-        logging.info(f"response: {response}")
-        text_output.markdown(f"**Text:** {response}")
-        responses.append(json.loads(response))
+        response = json.loads(response)
+        text = f"{response['channel']['alternatives'][0]['transcript']} - is_final: {response['is_final']} - speech_final: {response['speech_final']}"
+        text_output.markdown(f"**Text:** {text}")
+        responses.append(response)
     except WebSocketDisconnect:
         pass
     except Exception:
