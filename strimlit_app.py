@@ -40,7 +40,7 @@ def main():
     st.title("Real Time Speech-to-Text")
     st.header("Demo app using the collectiveAi servers")
     ips = {'conformerctc': '104.197.76.238', 'wav2vec': '35.188.220.104'}
-    option = st.selectbox('Select the ASR model', ('conformerctc','conformerctc'))
+    option = st.selectbox('Select the ASR model', ('conformerctc','wav2vec'))
     while not option:
         pass
     if option=='conformerctc':
