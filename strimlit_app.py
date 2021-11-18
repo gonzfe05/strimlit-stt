@@ -58,7 +58,7 @@ def get_webrtc_context(key: str = "speech-to-text") -> WebRtcStreamerContext:
 
 def read_transcript(client: WebSocket, responses: List) ->List[str]:
     """Read from websocket"""
-    with st.empty:
+    with st.empty():
         while True:
             # text_output = st.empty()
             try:
