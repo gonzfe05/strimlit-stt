@@ -65,10 +65,9 @@ def read_transcript(client: WebSocket, responses: List) ->List[str]:
             response = json.loads(response)
             logging.info(f"is_final: {response['is_final']}")
             if response['is_final']:
-                text = f"{response['channel']['alternatives'][0]['transcript']} - is_final: {response['is_final']} - speech_final: {response['speech_final']}"
+                text = f"{response['channel']['alternatives'][0]['transcript']} | is_final: {response['is_final']} | speech_final: {response['speech_final']}"
                 text_output.markdown(f"**Text:** {text}")
                 responses.append(response)
-                logging.info(responses)
         except WebSocketDisconnect:
             pass
         except Exception:
@@ -112,6 +111,7 @@ def send_audio_frames(audio_frames: List, client: WebSocket, ORIGINAL_SR: int) -
         # buffer = np.array(sound_chunk.get_array_of_samples())
         buffer = sound_chunk.raw_data
         client.send_binary(buffer)
+        sound_chunk = []
 
 def app_sst(endpoint: str, ORIGINAL_SR:int, VAD_SR: int):
     """Speech-to-text"""
