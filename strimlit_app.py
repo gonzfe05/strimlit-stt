@@ -67,6 +67,7 @@ def read_transcript(client: WebSocket, responses: List) ->List[str]:
             text = f"{response['channel']['alternatives'][0]['transcript']} - is_final: {response['is_final']} - speech_final: {response['speech_final']}"
             text_output.markdown(f"**Text:** {text}")
             responses.append(response)
+            logging.info(responses)
     except WebSocketDisconnect:
         pass
     except Exception:
