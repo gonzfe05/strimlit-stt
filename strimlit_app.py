@@ -37,12 +37,8 @@ logger = logging.getLogger(__name__)
 
 def main():
     """Main loop that runs the app in streamlit"""
-    st.header("Real Time Speech-to-Text")
-    st.markdown(
-        """
-This demo app is using conformerctc
-"""
-    )
+    st.title("Real Time Speech-to-Text")
+    st.header("This demo app is using the collectiveAi servers")
     ips = {'conformerctc': '104.197.76.238', 'wav2vec': '35.188.220.104'}
     option = st.selectbox('Select the ASR model', ('conformerctc','conformerctc'))
     while not option:
