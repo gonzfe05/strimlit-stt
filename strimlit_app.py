@@ -43,8 +43,11 @@ def main():
 This demo app is using conformerctc
 """
     )
-
-    app_sst(endpoint='ws://104.197.76.238:23000/ws', ORIGINAL_SR=48000, VAD_SR=48000)
+    ips = {'conformerctc': '104.197.76.238', 'wav2vec': '35.188.220.104'}
+    option = st.selectbox('Select the ASR model', ('conformerctc', 'wav2vec'))
+    while not option:
+        pass
+    app_sst(endpoint=f'ws://{ips[option]}:23000/ws', ORIGINAL_SR=48000, VAD_SR=48000)
 
 def get_webrtc_context(key: str = "speech-to-text") -> WebRtcStreamerContext:
     """Build a context to manage connection by webrtc to the mic"""
