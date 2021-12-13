@@ -65,7 +65,7 @@ def read_transcript(client: WebSocket, responses: List) ->List[str]:
             transcript = response['channel']['alternatives'][0]['transcript']
             final = response['is_final']
             speech = response['speech_final']
-            timings = response['word_timings']
+            timings = response['channel']['alternatives'][0]['word_timings']
             text = f"{transcript} | is_final: {final} | speech_final: {speech} | {timings}"
             text_output.write(f"{text}")
             text_output = st.empty()
