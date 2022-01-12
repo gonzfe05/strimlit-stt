@@ -45,8 +45,8 @@ def main():
     min_confidence = st.number_input(
         "Insert a number for minimum confidence required",
         value=min_confidence,
-        min_value=0,
-        max_value=1,
+        min_value=0.0,
+        max_value=1.0,
     )
     option = st.selectbox("Select the ASR model", ("conformerctc", "wav2vec"))
     if option:
@@ -76,8 +76,8 @@ def get_webrtc_context(key: str = "speech-to-text") -> WebRtcStreamerContext:
 
 def read_transcript(client: WebSocket, responses: List) -> List[str]:
     """Read from websocket"""
+
     while True:
-        text_output = st.empty()
         try:
             response = client.recv()
             response = json.loads(response)
@@ -88,8 +88,8 @@ def read_transcript(client: WebSocket, responses: List) -> List[str]:
             timings = response["channel"]["alternatives"][0]["word_timing"]
             text = f"{transcript} | is_final: {final} | speech_final: {speech} | {timings} | {confidence}"
             if confidence > min_confidence:
+                text_output = st.empty()
                 text_output.write(f"{text}")
-            text_output = st.empty()
             # responses.append(response)
         except WebSocketDisconnect:
             pass
