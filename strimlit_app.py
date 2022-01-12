@@ -34,61 +34,87 @@ HERE = Path(__file__).parent
 
 logger = logging.getLogger(__name__)
 
+min_confidence = 0.25
+
 
 def main():
     """Main loop that runs the app in streamlit"""
     st.title("Real Time Speech-to-Text")
     st.header("Demo app using the collectiveAi servers")
-    option = st.selectbox('Select the ASR model', ('conformerctc','wav2vec'))
+    global min_confidence
+    min_confidence = st.number_input(
+        "Insert a number for minimum confidence required",
+        value=min_confidence,
+        min_value=0.0,
+        max_value=1.0,
+    )
+    option = st.selectbox("Select the ASR model", ("conformerctc", "wav2vec"))
     if option:
-        ips = {'conformerctc': '104.197.76.238', 'wav2vec': '35.188.220.104'}
+        ips = {"conformerctc": "104.197.76.238", "wav2vec": "35.188.220.104"}
         st.write(f"Connecting to {ips[option]}:23000")
-        app_sst(endpoint=f'ws://{ips[option]}:23000/ws', ORIGINAL_SR=48000, VAD_SR=48000)
+        app_sst(
+            endpoint=f"ws://{ips[option]}:23000/ws", ORIGINAL_SR=48000, VAD_SR=48000
+        )
+
 
 def get_webrtc_context(key: str = "speech-to-text") -> WebRtcStreamerContext:
     """Build a context to manage connection by webrtc to the mic"""
     rtc_config = {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
     client = ClientSettings(
-            rtc_configuration=rtc_config,
-            media_stream_constraints={"video": False, "audio": True})
+        rtc_configuration=rtc_config,
+        media_stream_constraints={"video": False, "audio": True},
+    )
     # Unlike other Streamlit components, webrtc_streamer() requires the key argument as a unique identifier.
     # Set an arbitrary string to it.
-    return webrtc_streamer(key=key,mode=WebRtcMode.SENDONLY,audio_receiver_size=1024,client_settings=client)
+    return webrtc_streamer(
+        key=key,
+        mode=WebRtcMode.SENDONLY,
+        audio_receiver_size=1024,
+        client_settings=client,
+    )
 
-def read_transcript(client: WebSocket, responses: List) ->List[str]:
+
+def read_transcript(client: WebSocket, responses: List) -> List[str]:
     """Read from websocket"""
+
     while True:
-        text_output = st.empty()
         try:
             response = client.recv()
             response = json.loads(response)
-            transcript = response['channel']['alternatives'][0]['transcript']
-            final = response['is_final']
-            speech = response['speech_final']
-            timings = response['channel']['alternatives'][0]['word_timing']
-            text = f"{transcript} | is_final: {final} | speech_final: {speech} | {timings}"
-            text_output.write(f"{text}")
-            text_output = st.empty()
+            transcript = response["channel"]["alternatives"][0]["transcript"]
+            confidence = response["channel"]["alternatives"][0]["confidence"]
+            final = response["is_final"]
+            speech = response["speech_final"]
+            timings = response["channel"]["alternatives"][0]["word_timing"]
+            text = f"{transcript} | is_final: {final} | speech_final: {speech} | {timings} | {confidence}"
+            if confidence > min_confidence:
+                text_output = st.empty()
+                text_output.write(f"{text}")
             # responses.append(response)
         except WebSocketDisconnect:
             pass
         except Exception:
             pass
 
+
 def start_read_thread(client: WebSocket, responses: List) -> None:
     """Init read thread"""
-    thread = threading.Thread(target=read_transcript, args=(client,responses))
+    thread = threading.Thread(target=read_transcript, args=(client, responses))
     add_report_ctx(thread)
     thread.start()
 
-def init_client(endpoint: str, ORIGINAL_SR: int, VAD_SR: int, responses: List, status_indicator: Any) -> None:
+
+def init_client(
+    endpoint: str, ORIGINAL_SR: int, VAD_SR: int, responses: List, status_indicator: Any
+) -> None:
     """Init websocket and read thread"""
-    conn = f'{endpoint}?&source_sr={ORIGINAL_SR}&vad_sr={VAD_SR}'
+    conn = f"{endpoint}?&source_sr={ORIGINAL_SR}&vad_sr={VAD_SR}"
     logger.info(f"Connecting to: {conn}")
     client = create_connection(conn)
     start_read_thread(client, responses)
     status_indicator.write("Model loaded.")
     return client
+
 
 def cum_sound_chunks(audio_frames: List) -> AudioSegment:
     """cummulate sound frames"""
@@ -103,6 +129,7 @@ def cum_sound_chunks(audio_frames: List) -> AudioSegment:
         sound_chunk += sound
     return sound_chunk
 
+
 def send_audio_frames(audio_frames: List, client: WebSocket, ORIGINAL_SR: int) -> None:
     """Send audio frames to the websocket"""
     # Cumulate sound chunks
@@ -115,7 +142,8 @@ def send_audio_frames(audio_frames: List, client: WebSocket, ORIGINAL_SR: int) -
         client.send_binary(buffer)
         sound_chunk = []
 
-def app_sst(endpoint: str, ORIGINAL_SR:int, VAD_SR: int):
+
+def app_sst(endpoint: str, ORIGINAL_SR: int, VAD_SR: int):
     """Speech-to-text"""
 
     webrtc_ctx = get_webrtc_context()
@@ -129,7 +157,9 @@ def app_sst(endpoint: str, ORIGINAL_SR:int, VAD_SR: int):
     while True:
         if webrtc_ctx.audio_receiver:
             if client is None:
-                client = init_client(endpoint, ORIGINAL_SR, VAD_SR, responses, status_indicator)
+                client = init_client(
+                    endpoint, ORIGINAL_SR, VAD_SR, responses, status_indicator
+                )
             try:
                 audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
             except queue.Empty:
