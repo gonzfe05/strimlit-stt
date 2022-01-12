@@ -34,7 +34,7 @@ HERE = Path(__file__).parent
 
 logger = logging.getLogger(__name__)
 
-min_confidence = 0.25
+min_confidence = 0.35
 
 
 def main():
