@@ -1,5 +1,5 @@
 av==8.0.3
-fastapi==0.70.0
+fastapi==0.73.0
 numpy==1.21.4
 pydub==0.25.1
 streamlit==1.2.0
